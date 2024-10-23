@@ -1,0 +1,75 @@
+[api]
+  enabled = true
+  address = "[::]:8686"
+
+
+[sources.fly_log_metrics]
+  type = "internal_metrics"
+
+
+[sources.nats]
+  type = "nats"
+  url = "nats://[${NETWORK-fdaa}::3]:4223"
+  queue = "${QUEUE-}"
+  subject = "${SUBJECT-logs.>}"
+  auth.strategy = "user_password"
+  auth.user_password.user = "${ORG-personal}"
+  auth.user_password.password = "${ACCESS_TOKEN?}"
+  connection_name = "Fly logs stream"
+
+
+# This transform is a little different from the supafly/fly-log-shipper version.
+# The reason is that my applications normally log production messages as json,
+# but occasionally something else on the machine (another library/process/etc)
+# ships a non-json message, and I don't want that message skipped. So what we
+# have below is a bit confusing because of all the nested "message" fields, but
+# it's basically:
+#   'outer' is a vector payload from nats source with fields: { "message": ..., "timestamp": ..., "host": ... }
+#   See: https://vector.dev/docs/about/under-the-hood/architecture/data-model/log/
+#
+#   The outer.message payload is the one sent from fly.io, which has a message field.
+#   'middle' is the fly-send logs with fields like:
+#   {"event":{"provider":"app"},"fly":{"app":{...}},"host":"{...}","message":"{\"level\":\"info\",\"ts\":1705958566.0256243,\"caller\":\"http/middleware.go:50\",\"msg\":\"received: GET /\",\"actx\":\"http\",\"tid\":\"2bKKwBE05xtwuKvl2rIM22\"}","timestamp":"2024-01-22T21:22:46.026061277Z"}
+#   Notice that middle.message is a json string that we'd like to be structured
+#   when we ship logs.
+#
+#   However, sometimes middle.message is just a string when other processes are
+#   logging, e.g.:
+#   {"event":{"provider":"app"},"fly":{"app":{...}},"host":"{...}","message":"some other process has logged an important message","timestamp":"2024-01-22T21:22:46.026061277Z"}
+#
+#   So we want to be careful below not to assume/bail if the innermost "message"
+#   field contains a string instead of well-formatted json, and instead create
+#   an object like { "msg": "some string", "unstructured_log": true } to ship.
+[transforms.log_json]
+  type = "remap"
+  inputs = ["nats"]
+  source = '''
+  . = parse_json(.message) ?? .message
+  .message = object(parse_json!(.message)) ?? { "msg": string(.message), "unstructured_log": true } ?? .message
+  '''
+
+
+[sinks.gcp_logs]
+  type = "gcp_stackdriver_logs"
+  inputs = [ "log_json" ]
+  credentials_path = "/service_account_credentials.json"
+  # log_id can contain no dots
+  log_id = "[set-me]"
+  project_id = "[set-me]"
+  severity_key = "message.level"
+
+  [sinks.gcp_logs.resource]
+    type = "global"
+
+
+[sinks.fly_log_metrics_prometheus]
+  type = "prometheus_exporter" # required
+  inputs = ["fly_log_metrics"] # required
+  address = "[::]:9598" # required
+  default_namespace = "fly-logs" # optional, no default
+
+
+[sinks.blackhole]
+  type = "blackhole"
+  inputs = ["log_json"]
+  print_interval_secs = 100000

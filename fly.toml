@@ -1,5 +1,26 @@
-app = "fly-log-shipper-example"
+app = "fly-log-shipper-[set me]"
 
 [metrics]
   port = 9598
   path = "/metrics"
+
+[[services]]
+  http_checks = []
+  internal_port = 8686
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+
+[env]
+  ORG = "[set-me]"
+#  Set a queue value to prevent multiple instances from duplicate processing
+#  the same log messages
+  QUEUE = "my_gcp_logs_queue"
+
+#  Optionally only filter logs for the specific app name, so that you're not
+#  shipping out logs that other apps (e.g. this one) produce.
+#  SUBJECT = "logs.[APP_NAME.[REGION_NAME.[INSTANCE_NAME.]]]>"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory_mb = 256

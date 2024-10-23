@@ -1,1 +1,7 @@
 .env
+
+# backups
+*~
+
+# service account credentials
+secret*.json

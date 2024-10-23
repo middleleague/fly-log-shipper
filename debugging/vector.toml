@@ -1,0 +1,30 @@
+[api]
+  enabled = true
+  address = "0.0.0.0:8686"
+
+[sources.dm]
+  type = "demo_logs"
+  interval = 2.5
+  format = "shuffle"
+  lines = ["this is the first line, and is not json", "{\"foo\":123,\"message\":\"and this IS json\"}","{\"foo\":123,\"message\":{\"msg\":\"and this IS json tooooo\"}"]
+
+[transforms.toj]
+  type = "remap"
+  inputs = ["dm"]
+  source = '''
+  . = parse_json(.message) ?? .message
+  .message = object(parse_json!(.message)) ?? { "msg": string(.message) } ?? .message
+  .is_str = is_string(.message)
+  .is_object = is_object(.message)
+  '''
+#  . |= object(parse_json!(.message)) ?? {}
+#  .message = object(parse_json!(.message)) ?? { "msg": .message }
+#  .transformed = true
+#  .sz = true
+
+
+[sinks.c1]
+  inputs = ["toj"]
+  target = "stdout"
+  type = "console"
+  encoding.codec = "json"
