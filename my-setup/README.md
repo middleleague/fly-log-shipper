@@ -44,13 +44,16 @@ git checkout -b [newapp]-config
 cp /some/path/service-account-creds.json ./secret_g_service_account_app_logs_writer.json
 
 emacs fly.toml
-# Replace [set-me] in `fly.toml` with a more descriptive app name (e.g. fly-log-shipper-foobar).
+# Replace [set-me] in `fly.toml` with a more descriptive app name (e.g. fly-log-shipper-foobar) and the correct (fly) ORG env var.
+
 
 # Create the app
 fly apps create fly-log-shipper-foobar
 
-# Set the access token (these instructions will need to be updated once the `fly auth token` command goes away)
-fly secrets set ACCESS_TOKEN=$(fly auth token)
+# Generate an org access token
+fly tokens create org
+# Set the access token (NOTE: it doesn't seem to matter whether the preamble "FlyV1" is included or not!?)
+fly secrets set ACCESS_TOKEN=[token from previous step]
 
 emacs my-setup/vector.toml
 # Set the log_id value to something descriptive (but with no dots or your requests may fail with 400 errors) and project_id value to your gcp project id.
