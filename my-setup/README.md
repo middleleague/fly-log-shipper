@@ -35,3 +35,25 @@ We'll deploy the service account credentials with the app, but be careful not to
 
 ## Set up the log shipper
 
+```
+git clone https://github.com/cameront/fly-log-shipper
+cd fly-log-shipper
+git checkout -b [newapp]-config
+
+# Copy service account credentials
+cp /some/path/service-account-creds.json ./secret_g_service_account_app_logs_writer.json
+
+emacs fly.toml
+# Replace [set-me] in `fly.toml` with a more descriptive app name (e.g. fly-log-shipper-foobar).
+
+# Create the app
+fly apps create fly-log-shipper-foobar
+
+# Set the access token (these instructions will need to be updated once the `fly auth token` command goes away)
+fly secrets set ACCESS_TOKEN=$(fly auth token)
+
+emacs my-setup/vector.toml
+# Set the log_id value to something descriptive (but with no dots or your requests may fail with 400 errors) and project_id value to your gcp project id.
+
+fly deploy
+```
