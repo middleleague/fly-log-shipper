@@ -54,8 +54,8 @@
   inputs = [ "log_json" ]
   credentials_path = "/service_account_credentials.json"
   # log_id can contain no dots
-  log_id = "[set-me]"
-  project_id = "[set-me]"
+  log_id = "applogs"
+  project_id = "middleleague"
   severity_key = "message.level"
 
   [sinks.gcp_logs.resource]
